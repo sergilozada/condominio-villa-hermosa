@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "villa-hermosa-lotes",
+    "target": "condominio-nuevo",
     "public": "dist",
     "ignore": [
       "firebase.json",

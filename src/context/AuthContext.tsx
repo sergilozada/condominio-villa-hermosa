@@ -96,12 +96,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     'readonly': { id: '3', username: 'readonly', role: 'readonly' }
   };
 
-  const localPasswords: Record<string, string | undefined> = {
-    admin: import.meta.env.VITE_ADMIN_PASSWORD,
-    usuario: import.meta.env.VITE_USUARIO_PASSWORD,
-    readonly: import.meta.env.VITE_READONLY_PASSWORD
-  };
-
   useEffect(() => {
     // Cargar datos del localStorage
     const savedUser = localStorage.getItem('currentUser');
@@ -124,7 +118,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [clients]);
 
   const login = (username: string, password: string): boolean => {
-    // El modo local solo se habilita cuando hay credenciales en .env.local.
+    // El modo local es exclusivo del servidor de desarrollo. En producción,
+    // todo acceso debe pasar por Firebase Authentication.
+    if (!import.meta.env.DEV) return false;
+
+    const localPasswords: Record<string, string | undefined> = {
+      admin: import.meta.env.VITE_ADMIN_PASSWORD,
+      usuario: import.meta.env.VITE_USUARIO_PASSWORD,
+      readonly: import.meta.env.VITE_READONLY_PASSWORD
+    };
     const expectedPassword = localPasswords[username];
     if (defaultUsers[username] && expectedPassword && password === expectedPassword) {
       const loggedUser = defaultUsers[username];

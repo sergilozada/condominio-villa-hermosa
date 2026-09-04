@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "villa-hermosa-lotes"
-  }
+  },
+  "targets": {
+    "villa-hermosa-lotes": {
+      "hosting": {
+        "condominio-nuevo": [
+          "condominio-villa-hermosa"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

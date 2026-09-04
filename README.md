@@ -68,7 +68,7 @@ python -m unittest discover -s tests -v
 
 ## Sitio web
 
-https://villa-hermosa-lotes.web.app/
+https://condominio-villa-hermosa.web.app/
 
 ## Repositorio
 
