@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.local
+
+# Firebase local state and logs
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Local customer/minute data
+services/minutas/data/
+services/minutas/.tmp/
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite3
+
+# Generated reports and temporary files
+output/
+tmp/
+
+# Python caches
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editors and operating system files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.obsidian/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -1,0 +1,251 @@
+import { useCallback, useEffect, useState } from 'react';
+import {
+  BadgeCheck,
+  CircleAlert,
+  Database,
+  ExternalLink,
+  FileSignature,
+  LoaderCircle,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
+
+const HEALTH_ENDPOINT = '/minutas-api/health';
+const MINUTAS_SERVICE_URL = '/minutas-service/';
+
+type ServiceState = 'checking' | 'ready' | 'error';
+
+export default function MinutasWorkspace() {
+  const [serviceState, setServiceState] = useState<ServiceState>('checking');
+  const [frameLoading, setFrameLoading] = useState(true);
+  const [frameKey, setFrameKey] = useState(0);
+
+  const checkService = useCallback(async (signal?: AbortSignal) => {
+    setServiceState('checking');
+
+    try {
+      const response = await fetch(HEALTH_ENDPOINT, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Health check failed with status ${response.status}`);
+      }
+
+      setFrameLoading(true);
+      setServiceState('ready');
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      setServiceState('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void checkService(controller.signal);
+
+    return () => controller.abort();
+  }, [checkService]);
+
+  const reloadWorkspace = () => {
+    if (serviceState !== 'ready') {
+      void checkService();
+      return;
+    }
+
+    setFrameLoading(true);
+    setFrameKey(currentKey => currentKey + 1);
+  };
+
+  const status = (() => {
+    if (serviceState === 'checking') {
+      return {
+        label: 'Comprobando servicio local',
+        className: 'border-[#c7ddd9] bg-[#eef8f6] text-[#0d6f78]',
+        icon: <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />,
+      };
+    }
+
+    if (serviceState === 'error') {
+      return {
+        label: 'Servicio local no disponible',
+        className: 'border-rose-200 bg-rose-50 text-rose-700',
+        icon: <CircleAlert className="h-4 w-4" aria-hidden="true" />,
+      };
+    }
+
+    if (frameLoading) {
+      return {
+        label: 'Servicio disponible · cargando panel',
+        className: 'border-[#c7ddd9] bg-[#eef8f6] text-[#0d6f78]',
+        icon: <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />,
+      };
+    }
+
+    return {
+      label: 'Servicio local disponible',
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      icon: <BadgeCheck className="h-4 w-4" aria-hidden="true" />,
+    };
+  })();
+
+  return (
+    <section className="space-y-5" aria-labelledby="minutas-workspace-title">
+      <header className="relative isolate overflow-hidden rounded-3xl border border-[#16335c]/10 bg-[#0e1c37] px-5 py-6 text-white shadow-xl shadow-[#15284d]/10 sm:px-7 sm:py-7">
+        <div
+          className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(20,142,152,0.46),transparent_46%),linear-gradient(135deg,#0e1c37_0%,#15284d_68%,#0d6f78_100%)]"
+          aria-hidden="true"
+        />
+        <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-[#148e98] via-[#c9a24d] to-transparent" aria-hidden="true" />
+
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/15 bg-white/95 shadow-lg shadow-black/15 sm:h-16 sm:w-16">
+              <img
+                src="/brand/villa-hermosa-icon.png"
+                alt=""
+                className="h-full w-full object-contain p-1.5"
+              />
+            </div>
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#b9ebe5]">
+                <FileSignature className="h-4 w-4" aria-hidden="true" />
+                Gestión documental
+              </div>
+              <h1 id="minutas-workspace-title" className="brand-display text-3xl font-medium tracking-tight sm:text-4xl">
+                Minutas Villa Hermosa
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75 sm:text-base">
+                Completa, revisa y genera contratos con su cronograma de pagos desde un espacio independiente.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end">
+            <div
+              className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border px-3.5 text-sm font-semibold ${status.className}`}
+              role="status"
+              aria-live="polite"
+            >
+              {status.icon}
+              <span>{status.label}</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={reloadWorkspace}
+                disabled={serviceState === 'checking'}
+                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-sm transition hover:border-white/35 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79d9cf] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1c37] disabled:cursor-wait disabled:opacity-60 sm:flex-none"
+              >
+                <RefreshCw className={`h-4 w-4 ${serviceState === 'checking' ? 'animate-spin' : ''}`} aria-hidden="true" />
+                Recargar
+              </button>
+              <a
+                href={MINUTAS_SERVICE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0d6f78] px-4 text-sm font-semibold text-white shadow-lg shadow-black/15 transition hover:bg-[#07565d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79d9cf] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1c37] motion-reduce:transition-none sm:flex-none"
+              >
+                Abrir en pestaña
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex items-start gap-3 rounded-2xl border border-[#d9ddd9] bg-[#fffefb] px-4 py-3.5 shadow-sm">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#e6f6f3] text-[#0d6f78]">
+            <Database className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-[#15284d]">Almacenamiento independiente</p>
+            <p className="mt-0.5 text-sm leading-5 text-[#697386]">Este módulo usa su propia base SQLite local.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-2xl border border-[#d9ddd9] bg-[#fffefb] px-4 py-3.5 shadow-sm">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#fff7e3] text-[#8a6215]">
+            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-[#15284d]">Datos protegidos</p>
+            <p className="mt-0.5 text-sm leading-5 text-[#697386]">Crear o editar minutas aquí NO modifica la base de Firebase.</p>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="relative min-h-[760px] overflow-hidden rounded-3xl border border-[#d9ddd9] bg-white shadow-xl shadow-[#15284d]/10 lg:h-[calc(100vh-9rem)] lg:max-h-[1180px]"
+        aria-busy={serviceState === 'checking' || frameLoading}
+      >
+        {serviceState === 'checking' && (
+          <div className="absolute inset-0 z-10 space-y-5 bg-[#f7f7f3] p-5 sm:p-7" aria-label="Cargando módulo de minutas">
+            <div className="flex animate-pulse items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl bg-[#dfe7e4]" />
+              <div className="space-y-2">
+                <div className="h-4 w-44 rounded-full bg-[#dfe7e4]" />
+                <div className="h-3 w-64 max-w-[70vw] rounded-full bg-[#e9ece9]" />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+              <div className="h-[610px] animate-pulse rounded-2xl bg-[#e9ece9]" />
+              <div className="space-y-4">
+                <div className="h-40 animate-pulse rounded-2xl bg-[#dfe7e4]" />
+                <div className="h-64 animate-pulse rounded-2xl bg-[#e9ece9]" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {serviceState === 'error' && (
+          <div className="absolute inset-0 grid place-items-center bg-[#f7f7f3] p-5">
+            <div className="w-full max-w-lg rounded-3xl border border-rose-200 bg-white p-7 text-center shadow-lg shadow-[#15284d]/5 sm:p-9">
+              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-50 text-rose-700">
+                <CircleAlert className="h-7 w-7" aria-hidden="true" />
+              </span>
+              <h2 className="mt-5 text-xl font-semibold text-[#15284d]">No pudimos abrir el módulo de minutas</h2>
+              <p className="mt-2 text-sm leading-6 text-[#697386]">
+                Comprueba que el servicio local esté iniciado y vuelve a intentarlo. Tus datos permanecen sin cambios.
+              </p>
+              <button
+                type="button"
+                onClick={() => void checkService()}
+                className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0d6f78] px-5 text-sm font-semibold text-white shadow-md transition hover:bg-[#07565d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#148e98] focus-visible:ring-offset-2 motion-reduce:transition-none"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                Reintentar conexión
+              </button>
+            </div>
+          </div>
+        )}
+
+        {serviceState === 'ready' && (
+          <>
+            {frameLoading && (
+              <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-white/90 backdrop-blur-sm">
+                <div className="text-center" role="status" aria-live="polite">
+                  <LoaderCircle className="mx-auto h-8 w-8 animate-spin text-[#148e98]" aria-hidden="true" />
+                  <p className="mt-3 text-sm font-medium text-[#15284d]">Preparando el panel de minutas…</p>
+                </div>
+              </div>
+            )}
+            <iframe
+              key={frameKey}
+              src={MINUTAS_SERVICE_URL}
+              title="Sistema de generación de minutas Villa Hermosa"
+              className="h-full min-h-[760px] w-full border-0 bg-white"
+              referrerPolicy="same-origin"
+              onLoad={() => setFrameLoading(false)}
+            />
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
