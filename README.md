@@ -66,6 +66,15 @@ Para ejecutar las verificaciones del generador desde `services/minutas`, usa:
 python -m unittest discover -s tests -v
 ```
 
+En producción, define `VITE_MINUTAS_SERVICE_URL` con la URL HTTPS del servicio
+documental. El panel lo abre en una pestaña independiente para conservar una sesión
+segura y evitar que Firebase Hosting cargue el panel de forma recursiva.
+En el despliegue manual de GitHub Actions, guarda esa URL pública como variable del
+repositorio `VITE_MINUTAS_SERVICE_URL` (no como contraseña). Si falta una URL válida,
+el panel muestra que el acceso web está pendiente de configurar y no incrusta el
+propio panel. El generador remoto se mantiene en el repositorio privado
+[minutas-villahermosa](https://github.com/sergilozada/minutas-villahermosa).
+
 ## Sitio web
 
 https://condominio-villa-hermosa.web.app/

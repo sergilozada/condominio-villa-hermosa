@@ -11,12 +11,31 @@ import {
 } from 'lucide-react';
 
 const HEALTH_ENDPOINT = '/minutas-api/health';
-const MINUTAS_SERVICE_URL = '/minutas-service/';
+const CONFIGURED_SERVICE_URL = String(import.meta.env.VITE_MINUTAS_SERVICE_URL || '').trim();
+const EXTERNAL_SERVICE_URL = (() => {
+  if (!CONFIGURED_SERVICE_URL) return null;
 
-type ServiceState = 'checking' | 'ready' | 'error';
+  try {
+    const url = new URL(CONFIGURED_SERVICE_URL);
+    if (
+      url.protocol !== 'https:' || url.username || url.password ||
+      url.origin === window.location.origin
+    ) return null;
+
+    return url.href;
+  } catch {
+    return null;
+  }
+})();
+const IS_EXTERNAL_SERVICE = EXTERNAL_SERVICE_URL !== null;
+const IS_LOCAL_SERVICE = import.meta.env.DEV && !CONFIGURED_SERVICE_URL;
+const IS_UNCONFIGURED = !IS_EXTERNAL_SERVICE && !IS_LOCAL_SERVICE;
+const MINUTAS_SERVICE_URL = EXTERNAL_SERVICE_URL ?? '/minutas-service/';
+
+type ServiceState = 'checking' | 'ready' | 'error' | 'unconfigured';
 
 export default function MinutasWorkspace() {
-  const [serviceState, setServiceState] = useState<ServiceState>('checking');
+  const [serviceState, setServiceState] = useState<ServiceState>(IS_UNCONFIGURED ? 'unconfigured' : 'checking');
   const [frameLoading, setFrameLoading] = useState(true);
   const [frameKey, setFrameKey] = useState(0);
 
@@ -36,6 +55,16 @@ export default function MinutasWorkspace() {
         throw new Error(`Health check failed with status ${response.status}`);
       }
 
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.toLowerCase().includes('application/json')) {
+        throw new Error('Health check did not return JSON');
+      }
+
+      const payload = await response.json() as { ok?: unknown; service?: unknown };
+      if (payload.ok !== true || payload.service !== 'Villa Hermosa Minutas') {
+        throw new Error('Health check returned an unexpected service');
+      }
+
       setFrameLoading(true);
       setServiceState('ready');
     } catch (error) {
@@ -45,6 +74,14 @@ export default function MinutasWorkspace() {
   }, []);
 
   useEffect(() => {
+    if (IS_UNCONFIGURED) return;
+
+    if (IS_EXTERNAL_SERVICE) {
+      setServiceState('ready');
+      setFrameLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     void checkService(controller.signal);
 
@@ -62,6 +99,22 @@ export default function MinutasWorkspace() {
   };
 
   const status = (() => {
+    if (IS_UNCONFIGURED) {
+      return {
+        label: 'Acceso web pendiente de configurar',
+        className: 'border-amber-200 bg-amber-50 text-amber-800',
+        icon: <CircleAlert className="h-4 w-4" aria-hidden="true" />,
+      };
+    }
+
+    if (IS_EXTERNAL_SERVICE) {
+      return {
+        label: 'Acceso web configurado',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        icon: <BadgeCheck className="h-4 w-4" aria-hidden="true" />,
+      };
+    }
+
     if (serviceState === 'checking') {
       return {
         label: 'Comprobando servicio local',
@@ -136,24 +189,26 @@ export default function MinutasWorkspace() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={reloadWorkspace}
-                disabled={serviceState === 'checking'}
-                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-sm transition hover:border-white/35 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79d9cf] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1c37] disabled:cursor-wait disabled:opacity-60 sm:flex-none"
-              >
-                <RefreshCw className={`h-4 w-4 ${serviceState === 'checking' ? 'animate-spin' : ''}`} aria-hidden="true" />
-                Recargar
-              </button>
-              <a
+              {IS_LOCAL_SERVICE && (
+                <button
+                  type="button"
+                  onClick={reloadWorkspace}
+                  disabled={serviceState === 'checking'}
+                  className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-sm transition hover:border-white/35 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79d9cf] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1c37] disabled:cursor-wait disabled:opacity-60 sm:flex-none"
+                >
+                  <RefreshCw className={`h-4 w-4 ${serviceState === 'checking' ? 'animate-spin' : ''}`} aria-hidden="true" />
+                  Recargar
+                </button>
+              )}
+              {(IS_EXTERNAL_SERVICE || (IS_LOCAL_SERVICE && serviceState === 'ready')) && <a
                 href={MINUTAS_SERVICE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0d6f78] px-4 text-sm font-semibold text-white shadow-lg shadow-black/15 transition hover:bg-[#07565d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79d9cf] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1c37] motion-reduce:transition-none sm:flex-none"
               >
-                Abrir en pestaña
+                {IS_EXTERNAL_SERVICE ? 'Abrir Minutas' : 'Abrir en pestaña'}
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              </a>
+              </a>}
             </div>
           </div>
         </div>
@@ -166,7 +221,13 @@ export default function MinutasWorkspace() {
           </span>
           <div>
             <p className="text-sm font-semibold text-[#15284d]">Almacenamiento independiente</p>
-            <p className="mt-0.5 text-sm leading-5 text-[#697386]">Este módulo usa su propia base SQLite local.</p>
+            <p className="mt-0.5 text-sm leading-5 text-[#697386]">
+              {IS_EXTERNAL_SERVICE
+                ? 'Minutas usa una base Supabase separada de la cartera de clientes.'
+                : IS_LOCAL_SERVICE
+                  ? 'Este módulo usa su propia base SQLite local.'
+                  : 'Minutas conserva sus documentos en un almacenamiento separado de la cartera de clientes.'}
+            </p>
           </div>
         </div>
         <div className="flex items-start gap-3 rounded-2xl border border-[#d9ddd9] bg-[#fffefb] px-4 py-3.5 shadow-sm">
@@ -180,10 +241,44 @@ export default function MinutasWorkspace() {
         </div>
       </div>
 
-      <div
-        className="relative min-h-[760px] overflow-hidden rounded-3xl border border-[#d9ddd9] bg-white shadow-xl shadow-[#15284d]/10 lg:h-[calc(100vh-9rem)] lg:max-h-[1180px]"
-        aria-busy={serviceState === 'checking' || frameLoading}
-      >
+      {IS_UNCONFIGURED ? (
+        <div className="rounded-3xl border border-[#d9ddd9] bg-white px-6 py-12 text-center shadow-xl shadow-[#15284d]/10 sm:px-10">
+          <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-50 text-amber-800">
+            <CircleAlert className="h-7 w-7" aria-hidden="true" />
+          </span>
+          <h2 className="mt-5 text-xl font-semibold text-[#15284d]">El acceso a Minutas aún no está configurado</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#697386]">
+            Falta configurar un enlace web válido al sistema de Minutas. Contacta al administrador para habilitar este acceso.
+          </p>
+        </div>
+      ) : IS_EXTERNAL_SERVICE ? (
+        <div className="relative isolate overflow-hidden rounded-3xl border border-[#d9ddd9] bg-white px-6 py-12 text-center shadow-xl shadow-[#15284d]/10 sm:px-10 sm:py-16">
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(20,142,152,0.12),transparent_54%)]" aria-hidden="true" />
+          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#e6f6f3] text-[#0d6f78] shadow-sm">
+            <FileSignature className="h-8 w-8" aria-hidden="true" />
+          </span>
+          <h2 className="mt-5 text-2xl font-semibold tracking-tight text-[#15284d]">Sistema de Minutas en línea</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#697386] sm:text-base">
+            Abre el espacio documental seguro para registrar compradores, preparar contratos y descargar cronogramas.
+          </p>
+          <a
+            href={MINUTAS_SERVICE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0d6f78] px-6 text-sm font-semibold text-white shadow-lg shadow-[#0d6f78]/20 transition hover:-translate-y-0.5 hover:bg-[#07565d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#148e98] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none"
+          >
+            Abrir sistema de Minutas
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+          </a>
+          <p className="mt-4 text-xs leading-5 text-[#7a8495]">
+            Se abre en una pestaña independiente para mantener protegida tu sesión.
+          </p>
+        </div>
+      ) : (
+        <div
+          className="relative min-h-[760px] overflow-hidden rounded-3xl border border-[#d9ddd9] bg-white shadow-xl shadow-[#15284d]/10 lg:h-[calc(100vh-9rem)] lg:max-h-[1180px]"
+          aria-busy={serviceState === 'checking' || frameLoading}
+        >
         {serviceState === 'checking' && (
           <div className="absolute inset-0 z-10 space-y-5 bg-[#f7f7f3] p-5 sm:p-7" aria-label="Cargando módulo de minutas">
             <div className="flex animate-pulse items-center gap-3">
@@ -245,7 +340,8 @@ export default function MinutasWorkspace() {
             />
           </>
         )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
