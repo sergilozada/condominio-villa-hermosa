@@ -78,7 +78,7 @@ export default function MinutasWorkspace() {
 
     if (IS_EXTERNAL_SERVICE) {
       setServiceState('ready');
-      setFrameLoading(false);
+      setFrameLoading(true);
       return;
     }
 
@@ -109,9 +109,13 @@ export default function MinutasWorkspace() {
 
     if (IS_EXTERNAL_SERVICE) {
       return {
-        label: 'Acceso web configurado',
-        className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-        icon: <BadgeCheck className="h-4 w-4" aria-hidden="true" />,
+        label: frameLoading ? 'Cargando Minutas…' : 'Minutas integrada',
+        className: frameLoading
+          ? 'border-[#c7ddd9] bg-[#eef8f6] text-[#0d6f78]'
+          : 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        icon: frameLoading
+          ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+          : <BadgeCheck className="h-4 w-4" aria-hidden="true" />,
       };
     }
 
@@ -173,7 +177,7 @@ export default function MinutasWorkspace() {
                 Minutas Villa Hermosa
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75 sm:text-base">
-                Completa, revisa y genera contratos con su cronograma de pagos desde un espacio independiente.
+                Completa, revisa y genera contratos con su cronograma de pagos sin salir del panel.
               </p>
             </div>
           </div>
@@ -189,14 +193,13 @@ export default function MinutasWorkspace() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {IS_LOCAL_SERVICE && (
+              {serviceState === 'ready' && (
                 <button
                   type="button"
                   onClick={reloadWorkspace}
-                  disabled={serviceState === 'checking'}
                   className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-sm font-semibold text-white backdrop-blur-sm transition hover:border-white/35 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79d9cf] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1c37] disabled:cursor-wait disabled:opacity-60 sm:flex-none"
                 >
-                  <RefreshCw className={`h-4 w-4 ${serviceState === 'checking' ? 'animate-spin' : ''}`} aria-hidden="true" />
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
                   Recargar
                 </button>
               )}
@@ -206,7 +209,7 @@ export default function MinutasWorkspace() {
                 rel="noopener noreferrer"
                 className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0d6f78] px-4 text-sm font-semibold text-white shadow-lg shadow-black/15 transition hover:bg-[#07565d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#79d9cf] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1c37] motion-reduce:transition-none sm:flex-none"
               >
-                {IS_EXTERNAL_SERVICE ? 'Abrir Minutas' : 'Abrir en pestaña'}
+                Abrir aparte
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
               </a>}
             </div>
@@ -251,32 +254,9 @@ export default function MinutasWorkspace() {
             Falta configurar un enlace web válido al sistema de Minutas. Contacta al administrador para habilitar este acceso.
           </p>
         </div>
-      ) : IS_EXTERNAL_SERVICE ? (
-        <div className="relative isolate overflow-hidden rounded-3xl border border-[#d9ddd9] bg-white px-6 py-12 text-center shadow-xl shadow-[#15284d]/10 sm:px-10 sm:py-16">
-          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(20,142,152,0.12),transparent_54%)]" aria-hidden="true" />
-          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#e6f6f3] text-[#0d6f78] shadow-sm">
-            <FileSignature className="h-8 w-8" aria-hidden="true" />
-          </span>
-          <h2 className="mt-5 text-2xl font-semibold tracking-tight text-[#15284d]">Sistema de Minutas en línea</h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#697386] sm:text-base">
-            Abre el espacio documental seguro para registrar compradores, preparar contratos y descargar cronogramas.
-          </p>
-          <a
-            href={MINUTAS_SERVICE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#0d6f78] px-6 text-sm font-semibold text-white shadow-lg shadow-[#0d6f78]/20 transition hover:-translate-y-0.5 hover:bg-[#07565d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#148e98] focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none"
-          >
-            Abrir sistema de Minutas
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-          </a>
-          <p className="mt-4 text-xs leading-5 text-[#7a8495]">
-            Se abre en una pestaña independiente para mantener protegida tu sesión.
-          </p>
-        </div>
       ) : (
         <div
-          className="relative min-h-[760px] overflow-hidden rounded-3xl border border-[#d9ddd9] bg-white shadow-xl shadow-[#15284d]/10 lg:h-[calc(100vh-9rem)] lg:max-h-[1180px]"
+          className="relative h-[calc(100vh-5rem)] min-h-[760px] max-h-[1180px] overflow-hidden rounded-3xl border border-[#d9ddd9] bg-white shadow-xl shadow-[#15284d]/10"
           aria-busy={serviceState === 'checking' || frameLoading}
         >
         {serviceState === 'checking' && (
@@ -306,7 +286,7 @@ export default function MinutasWorkspace() {
               </span>
               <h2 className="mt-5 text-xl font-semibold text-[#15284d]">No pudimos abrir el módulo de minutas</h2>
               <p className="mt-2 text-sm leading-6 text-[#697386]">
-                Comprueba que el servicio local esté iniciado y vuelve a intentarlo. Tus datos permanecen sin cambios.
+                Comprueba que el servicio esté disponible y vuelve a intentarlo. Tus datos permanecen sin cambios.
               </p>
               <button
                 type="button"
@@ -335,7 +315,8 @@ export default function MinutasWorkspace() {
               src={MINUTAS_SERVICE_URL}
               title="Sistema de generación de minutas Villa Hermosa"
               className="h-full min-h-[760px] w-full border-0 bg-white"
-              referrerPolicy="same-origin"
+              loading="eager"
+              referrerPolicy="strict-origin-when-cross-origin"
               onLoad={() => setFrameLoading(false)}
             />
           </>
